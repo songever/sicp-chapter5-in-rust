@@ -227,7 +227,7 @@ fn parse_assign(input: &str) -> Result<(&str, Instruction), String> {
 }
 
 fn parse_test(input: &str) -> Result<(&str, Instruction), String> {
-    
+    let input
 }
 fn parse_branch(input: &str) -> Result<(&str, Instruction), String> {
     
