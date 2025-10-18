@@ -1,7 +1,5 @@
-use std::{collections::HashMap, primitive, str::pattern::Pattern};
-
 //The assemble function will take the Vec<Expr> as parameters.
-type ControllerText = Vec<Expr>;
+pub type ControllerText = Vec<Expr>;
 #[derive(Debug)]
 pub enum Expr {
     Instruction(Instruction),
@@ -13,10 +11,10 @@ pub enum Instruction {
     Assign {target_reg: String, val_expr: ValueExpr},
     Test(OpreationExpr),
     Branch(Label),
-    Goto(PrimitiveExpr),
-    Save {reg: String},
-    Restore {reg: String},
-    Perform(OpreationExpr),
+    // Goto(PrimitiveExpr),
+    // Save {reg: String},
+    // Restore {reg: String},
+    // Perform(OpreationExpr),
 }
 // impl Instruction {
 //     fn make_instruction() // Construct instruction by combining resources
@@ -31,8 +29,13 @@ pub enum ValueExpr {
 }
 #[derive(Debug)]
 pub struct OpreationExpr {
-    op: String,
+    name: String,
     oprands: Vec<ValueExpr>,
+}
+impl OpreationExpr {
+    pub fn name(&self) -> &str {
+        &self.name
+    }
 }
 #[derive(Debug)]
 pub enum PrimitiveExpr {
@@ -40,9 +43,13 @@ pub enum PrimitiveExpr {
     Label(Label),
     Register(String),
 }
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct Label(String);
-
+impl Label {
+    pub fn get_name(&self) -> String {
+        self.0.clone()
+    }
+}
 pub fn parse(controller_text: &str) -> Result<(&str, ControllerText), String> {
     let mut remaining = controller_text.trim();
     let mut exprs = Vec::new();
@@ -54,21 +61,35 @@ pub fn parse(controller_text: &str) -> Result<(&str, ControllerText), String> {
     }
     Ok((remaining, exprs))
 }
+#[test]
+fn test_parse_expr() {
+    let input = 
+    "(gcd
+        (test (op =) (reg b) (const 0))
+        (branch (label gcd-done))
+        (assign t (op rem) (reg a) (reg b))
+    gcd-done)";
 
+    match parse(input) {
+        Ok((remaining, exprs)) => {
+            println!("Parsed expressions: {:?}", exprs);
+            println!("Remaining input: '{}'", remaining);
+        }
+        Err(e) => println!("Error: {}", e),
+    }
+}
 fn parse_expr(input: &str) -> Result<(&str, Expr), String> {
     if input.starts_with("(") && input.ends_with(")") {
-        parse_instruction(input).map(|(remaining,inst)| (remaining, Expr::Instruction(inst)))
+        parse_instruction(input)
+            .map(|(remaining,inst)| (remaining, Expr::Instruction(inst)))
     } else {
-        parse_label(input).map(|(remaining, label)| (remaining, Expr::Label(label)))
+        parse_label(input)
+            .map(|(remaining, label)| (remaining, Expr::Label(label)))
     }
 }
 fn parse_label(input: &str) -> Result<(&str, Label), String> {
-    let ident = input.trim();
-    if ident.is_empty() {
-        Err("Expected lable".to_string())
-    } else {
-        Ok((&input[ident.len()..], Label(ident.to_string())))
-    }
+    let (remaining, ident) = ident_parser(input.trim()).expect("Expected identifier for label");
+    Ok((&remaining[ident.len()..], Label(ident.to_string())))
 }
 fn parse_instruction(input: &str) -> Result<(&str, Instruction), String> {
     let input = input.trim_start_matches("(").trim();
@@ -79,7 +100,9 @@ fn parse_instruction(input: &str) -> Result<(&str, Instruction), String> {
     } else if input.starts_with("branch") {
         parse_branch(input)
     } else {
-        Err(format!("Failed to parse instruction: {}", input.split_whitespace().next().unwrap_or("instruction not found.")))
+        Err(format!("Failed to parse instruction: {}", 
+            input.split_whitespace().next().unwrap_or("instruction not found.")
+        ))
     }
 }
 
@@ -88,7 +111,7 @@ fn ident_parser(input: &str) -> Result<(&str, String), String> {
     let mut chars = input.chars();
     let mut ident = String::new();
     let is_allowed_in_ident= |c: char| -> bool  {
-        matches!(c, '_' | '-' | '=' | '>' | '<' | '?' | '+' | '*' | '/' | '&' | '^' | '%' | '!' | '?')
+        matches!(c, '_' | '-' | '=' | '>' | '<' | '?' | '+' | '*' | '/' | '&' | '^' | '%' | '!')
     };
     while let Some(c) = chars.next() {
         if c.is_alphabetic() || is_allowed_in_ident(c) {
@@ -114,7 +137,7 @@ fn number_parser(input: &str) -> Result<(&str, u32), String> {
         }
     }
     if num.is_empty() {
-        Err("Expected identifier".to_string())
+        Err("Expected Value".to_string())
     } else {
         let value = num.parse()
             .map_err(|e| format!("Failed to parse the value '{num}' : {e}",))?;
@@ -158,6 +181,8 @@ fn parse_primitive_expr(input: &str) -> Result<(&str, PrimitiveExpr), String> {
     }
 }
 
+// Example to be parsed: "op add (reg a) (reg b))"
+//     Notice that the beginning '(' is already stripped
 fn parse_operation(input: &str) -> Result<(&str, OpreationExpr), String> {
     let input = input.trim_start_matches("op").trim();
 
@@ -182,24 +207,23 @@ fn parse_operation(input: &str) -> Result<(&str, OpreationExpr), String> {
                 }
 
                 Ok((input, OpreationExpr { 
-                    op: operation.to_string(),
+                    name: operation.to_string(),
                     oprands
                 }))
             }
     } else {
         //The operation does not have any operands here.
         Ok((input, OpreationExpr { 
-            op: operation.to_string(),
+            name: operation.to_string(),
             oprands: Vec::new()
         }))
     }
 }
 fn parse_value_expr(input: &str) -> Result<(&str, ValueExpr), String> {
     let input = input.trim_start_matches('(').trim();
-    // Implement parsing logic here
-    // Example:
     if input.starts_with("op") {
-        parse_operation(input).map(|(remaining, op)| (remaining, ValueExpr::OpreationExpr(op)))
+        parse_operation(input)
+            .map(|(remaining, op)| (remaining, ValueExpr::OpreationExpr(op)))
     } else if input.starts_with("reg") {
         parse_reg(input).map(|(remaining, reg)| (remaining, ValueExpr::PrimitiveExpr(PrimitiveExpr::Register(reg))))
     } else if input.starts_with("const") {
@@ -214,11 +238,13 @@ fn parse_value_expr(input: &str) -> Result<(&str, ValueExpr), String> {
 
 fn parse_assign(input: &str) -> Result<(&str, Instruction), String> {
     let input = input.trim_start_matches("assign").trim();
-    let (target, input ) = input.split_once(' ').ok_or("Assign expects a target register")?;
+    let (target, input ) = input.split_once(' ')
+        .ok_or("Assign expects a target register")?;
     let input = input.trim();
 
     if !input.starts_with("(") { return Err("Assign expects a value".to_string()); };
-    let (input , val) = parse_value_expr(input).map_err(|e| format!("Invalid value expression: {}", e))?;
+    let (input , val) = parse_value_expr(input)
+        .map_err(|e| format!("Invalid value expression: {}", e))?;
 
     Ok((input, Instruction::Assign { 
         target_reg: target.to_string(), 
@@ -226,31 +252,46 @@ fn parse_assign(input: &str) -> Result<(&str, Instruction), String> {
     }))
 }
 
+// Example to be parsed: " test (op =) (reg b) (const 0)) "
+// Notice that the beginning '(' is already stripped and 
+//     the trailing ')' will be stripped by parse_operation().
 fn parse_test(input: &str) -> Result<(&str, Instruction), String> {
-    let input
-}
-fn parse_branch(input: &str) -> Result<(&str, Instruction), String> {
-    
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn test_parse_expr() {
-        let input = 
-        "(gcd
-            (test (op =) (reg b) (const 0))
-            (branch (label gcd-done))
-            (assign t (op rem) (reg a) (reg b))
-        gcd-done)";
-
-        match parse(input) {
-            Ok((remaining, exprs)) => {
-                println!("Parsed expressions: {:?}", exprs);
-                println!("Remaining input: '{}'", remaining);
-            }
-            Err(e) => println!("Error: {}", e),
+    let input = input.trim_start_matches("test").trim();
+    match input.strip_prefix('(') { 
+        None => Err("Test expects an operation verrifying condition".to_string()),
+        Some(input) => {
+            let (input, cond) = parse_operation(input)?;
+            Ok((input.trim(), Instruction::Test(cond)))
         }
     }
 }
+
+fn parse_branch(input: &str) -> Result<(&str, Instruction), String> {
+    let input = input.trim_start_matches("branch").trim();
+    match input.strip_prefix('(') { 
+        None => Err("Branch expression expects a label".to_string()),
+        Some(input) => {  
+            match ident_parser(input) {
+                Err(e) => 
+                    Err("The label in branch expression expects a lable tag like (label label_name)".to_string()),
+                Ok((input, tag)) if tag != "label" => 
+                    Err("The label in branch expression expects a lable tag like (label label_name)".to_string()),
+                Ok((input, tag)) => {
+                    let (input, label) = parse_label(input.trim())?;
+                    if let Some(input) = input.trim().strip_prefix(')'){
+                        Ok((input, Instruction::Branch(label)))
+                    } else {
+                        Err("Expects a ')' at the end of the branch expression".to_string())
+                    }
+                }
+            } 
+
+            
+        }
+    }
+}
+
+// #[cfg(test)]
+// mod tests {
+    
+// }
