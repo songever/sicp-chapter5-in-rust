@@ -1,0 +1,63 @@
+Parsed expressions: [
+    Label(
+        Label(
+            "gcd",
+        ),
+    ),
+    Instruction(
+        Test(
+            OpreationExpr {
+                name: "=",
+                oprands: [
+                    PrimitiveExpr(
+                        Register(
+                            "b",
+                        ),
+                    ),
+                    PrimitiveExpr(
+                        Constant(
+                            0,
+                        ),
+                    ),
+                ],
+                arity: 2,
+            },
+        ),
+    ),
+    Instruction(
+        Branch(
+            Label(
+                "gcd-done",
+            ),
+        ),
+    ),
+    Instruction(
+        Assign {
+            target_reg: "t",
+            val_expr: OpreationExpr(
+                OpreationExpr {
+                    name: "rem",
+                    oprands: [
+                        PrimitiveExpr(
+                            Register(
+                                "a",
+                            ),
+                        ),
+                        PrimitiveExpr(
+                            Register(
+                                "b",
+                            ),
+                        ),
+                    ],
+                    arity: 2,
+                },
+            ),
+        },
+    ),
+    Label(
+        Label(
+            "gcd-done",
+        ),
+    ),
+]
+Remaining input: ''
