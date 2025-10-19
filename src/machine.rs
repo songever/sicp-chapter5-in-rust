@@ -208,7 +208,7 @@ impl Machine {
             ));
         }
 
-        // 1. 将所有 oprands 转换为 Procedure
+        // 1. Convert all operands to Procedures
         let procedures: Result<Vec<ValueProcedure>, String> = op
             .oprands()
             .into_iter()
@@ -216,13 +216,13 @@ impl Machine {
             .collect();
         let procedures = procedures?;
 
-        // 2. 合并所有 Procedure 为一个 Procedure
+        // 2. Combine all Procedures into a single Procedure
         let oprands_proc = combine_procedures(procedures)?;
 
-        // 3. 获取操作
+        // 3. Get the operation
         let operation = self.get_operation(op.name())?.clone();
         
-        // 4. 生成最终的闭包
+        // 4. Generate the final closure
         Ok(Box::new(move |machine: &mut Machine| {
             let oprands = oprands_proc(machine);
             operation.execute(machine, oprands)
